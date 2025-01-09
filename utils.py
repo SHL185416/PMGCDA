@@ -163,15 +163,3 @@ def measures_similarity(p1, p2):
     """
     temp = -(p1 * torch.log(p2) + p2 * torch.log(p1)) / 2
     return temp.sum()
-
-
-def comb(n, m):
-    r"""multiple pairwise combinations
-
-    :arg
-        n: the number of elements
-        m: the number of elements in each combination
-    :return
-        the number of combinations
-    """
-    return math.factorial(n) // (math.factorial(m) * math.factorial(n - m))
