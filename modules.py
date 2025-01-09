@@ -222,7 +222,7 @@ def prototype_loss_st(local_prototype_s, local_prototype_t, update_count_s, doma
             for k in range(args.num_source):
                 global_prototype_loss = global_prototype_loss + domain_w_k_list[k] * torch.cosine_similarity(global_prototype[i],
                                                                                                              local_prototype_t[k][j], dim=0)
-    M = args.num_source * (3 * args.num_class-1) / 2
+    M = args.num_source * (3 * args.num_class - 1) / 2
     loss = global_prototype_loss - local_prototype_loss / (M * args.num_class)
     return loss
 
