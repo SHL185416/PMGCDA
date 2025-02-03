@@ -206,10 +206,10 @@ for random_state in range(args.random_number, numRandom):
                 pred_logit_t_withNW = pred_logit_t_withNW + \
                                       pred_logit_t_list[i].detach() * node_weight_list[i].unsqueeze(1)
             """7.2 Calculates the probabilities for the source and target domains"""
-            pred_prob_xt = torch.sigmoid(pred_logit_t_withNW)
+            pred_prob_xt = torch.softmax(pred_logit_t_withNW,dim=1)
             pred_prob_xs_list = []
             for i in range(num_source):
-                pred_prob_xs_list.append(torch.sigmoid(pred_logit_s_list[i]))
+                pred_prob_xs_list.append(torch.softmax(pred_logit_s_list[i],dim=1))
             """7.3 Calculate s-t f1_scores"""
             for i in range(num_source):
                 f1_s = f1_scores(pred_prob_xs_list[i].cpu(), Y_s_list[i])
