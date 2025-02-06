@@ -51,20 +51,17 @@ A_s_list = [0] * num_source
 X_s_list = [0] * num_source
 Y_s_list = [0] * num_source
 num_nodes_s_list = [0] * num_source
-g_s_list = [0] * num_source
 # 2. Load dataset
 """2.1 Load data from the source network"""
 for i in range(num_source):
     A_s_list[i], X_s_list[i], Y_s_list[i] = load_citation(f"./input/{args.data_key}/{source_list[i]}.mat")
     num_nodes_s_list[i] = X_s_list[i].shape[0]
-    g_s_list[i] = dgl.from_scipy(A_s_list[i]).to(args.device).remove_self_loop().add_self_loop()
 num_feat = X_s_list[0].shape[1]
 num_class = Y_s_list[0].shape[1]
 args.num_class = num_class
 """2.2 Load data from the target network"""
 A_t, X_t, Y_t = load_citation(f"./input/{args.data_key}/{args.target}.mat")
 num_nodes_t = X_t.shape[0]
-g_t = dgl.from_scipy(A_t).to(args.device).remove_self_loop().add_self_loop()
 features_s_list = [torch.Tensor(X_s_list[i].todense()).to(args.device) for i in range(num_source)]
 features_t = torch.Tensor(X_t.todense()).to(args.device)
 # 3. Definitions of model variables
@@ -116,19 +113,13 @@ for random_state in range(args.random_number, numRandom):
             label_s_list = [0] * num_source
             adj_s_list = [0] * num_source
             shuffle_index_s_list = [0] * num_source
-            g_s1_list = [0] * num_source
             for i in range(num_source):
                 feat_s_list[i], label_s_list[i], adj_s_list[i], shuffle_index_s_list[i] = batch_s_list[i]
                 feat_s_list[i] = torch.FloatTensor(feat_s_list[i].toarray()).to(args.device)
                 label_s_list[i] = torch.FloatTensor(label_s_list[i]).to(args.device)
-
-                g_s1_list[i] = dgl.from_scipy(adj_s_list[i]).to(args.device)
-                g_s1_list[i] = dgl.remove_self_loop(g_s1_list[i])
-                g_s1_list[i] = dgl.add_self_loop(g_s1_list[i])
             feat_t, pred_label_t, adj_t, shuffle_index_t = batch_t
             feat_t = torch.FloatTensor(feat_t.toarray()).to(args.device)
 
-            g_t1 = dgl.from_scipy(adj_t).to(args.device).remove_self_loop().add_self_loop()
             p = float(epoch) / args.epochs
             lr = args.lr_ini / (1. + 10 * p) ** 0.75
             # 6. Train the model
