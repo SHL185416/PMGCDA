@@ -136,13 +136,13 @@ def node_transfer_weight(pred_logit_t_list, pred_label_t, num_source):
 
 
 def pseudo_labeling_pl(pred_logit_t_list, tau_p, w_k_list, args):
-    r"""positive pseudo-labeling.
+    r"""pseudo-labeling learning.
 
     Using the logit of the target node for positive pseudo label learning。
 
     :arg
         pred_logit_t_list (list): predicted logits from target domain.
-        tau_p (float): threshold for positive pseudo-labeling.
+        tau_p (float): threshold for pseudo-labeling learning.
         w_k_list (list): transferability weights for each source domain.
     :return
         loss: pseudo labeling loss.
