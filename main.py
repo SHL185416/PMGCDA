@@ -141,7 +141,7 @@ for random_state in range(args.random_number, numRandom):
             """6.2 node classification loss"""
             clf_loss_list = [0] * num_source
             for i in range(num_source):
-                clf_loss_list[i] = domain_weight_list[i] * 10 * clf_loss_f(pred_logit_s_list[i],
+                clf_loss_list[i] = domain_weight_list[i] * clf_loss_f(pred_logit_s_list[i],
                                                                    torch.argmax(label_s_list[i], 1))
             """6.3 pseudo label learning"""
             p_loss = pseudo_labeling_pl(pred_logit_t_list, tau_p, domain_weight_list, args)

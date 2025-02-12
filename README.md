@@ -26,7 +26,7 @@ The folder structure required
 ##### How to run
 
 ```shell
-python main.py --Clf_wei=1 --P_wei=1 --Prot_wei=0.01 --batch_size=8000 --data_key=citation --epochs=100 --gpu=0 --in_drop=0.4 --l2_w=0.01 --lr_ini=0.01 --num_hidden=64 --target=citation1_acmv9 --tau_p=0.5 --random_number=2024
+python main.py --Clf_wei=10 --P_wei=1 --Prot_wei=0.01 --batch_size=8000 --data_key=citation --epochs=100 --gpu=0 --in_drop=0.4 --l2_w=0.01 --lr_ini=0.01 --num_hidden=64 --target=citation1_acmv9 --tau_p=0.5 --random_number=2024
 ```
 
 For more details of this multi-source domain adaptation approach, please refer to the following work:
