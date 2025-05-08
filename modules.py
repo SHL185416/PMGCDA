@@ -8,11 +8,9 @@ from utils import *
 def domain_transfer_weight(pred_logit_t_list, num_source):
     r"""domain transferability weights based on information entropy.
 
-    Domain transferability weights are calculated by the information entropy of the predicted logits.
-
     :arg
-        num_source (int): number of source domains.
         pred_logit_t_list (list): predicted logits from target domain.
+        num_source (int): number of source domains.
     :return
         w_k_list (list): domain transferability weights for each source domain.
     """
@@ -28,45 +26,27 @@ def domain_transfer_weight(pred_logit_t_list, num_source):
     return w_k_list
 
 
-def prediction_confidence(pred_t_list, num_source, pred_label_t):
-    r"""prediction confidence.
-
-    :arg
-        pred_t_list: The prediction results of each domain specific node classifier for the target node.
-        num_source: the number of source networks.
-        pred_label_t: the predicted label of the target node.
-    :return
-        prediction_confidence_list: the prediction_confidence of each domain specific node classifier.
-    """
+def prediction_source_confidence(pred_t_list, num_source, pred_label_t):
     _, labels = torch.max(pred_label_t, dim=1)
 
-    prediction_confidence_list = []
+    source_confidence_list = []
     for i in range(num_source):
         prototype = calculate_prototype(pred_label_t, pred_t_list[i])
         source_confidence = []
         for j in range(len(pred_t_list[i])):
-            if prototype[labels[j]].sum() == 0:
+            if (prototype[labels[j]].sum() == 0):
                 source_confidence.append(torch.tensor(0.0).to(pred_label_t.device))
             else:
                 similarity = -1 * measures_similarity(pred_t_list[i][j], prototype[labels[j]])
                 source_confidence.append(similarity)
         source_confidence = torch.stack(source_confidence)
-        prediction_confidence_list.append(source_confidence)
-    return prediction_confidence_list
+        source_confidence_list.append(source_confidence)
+    return source_confidence_list
 
 
-def prediction_diversity(pred_t_list, num_source, pred_label_t):
-    r"""prediction diversity
-
-    :arg
-        pred_t_list: The prediction results of each domain specific node classifier for the target node.
-        num_source: the number of source networks.
-        pred_label_t: the predicted label of the target node.
-    :return
-        prediction_diversity_list: the prediction diversity of each domain specific node classifier.
-    """
+def prediction_source_diversity(pred_t_list, num_source, pred_label_t):
     _, labels = torch.max(pred_label_t, dim=1)
-    prediction_diversity_list = []
+    source_diversity_list = []
     for i in range(num_source):
         prototype = calculate_prototype(pred_label_t, pred_t_list[i])
         mean_prototype = prototype.mean(dim=0)
@@ -83,32 +63,24 @@ def prediction_diversity(pred_t_list, num_source, pred_label_t):
             label = labels[j]
             source_diversity.append(diversity[label])
         source_diversity = torch.stack(source_diversity)
-        prediction_diversity_list.append(source_diversity)
-    return prediction_diversity_list
+        source_diversity_list.append(source_diversity)
+    return source_diversity_list
 
 
-def prediction_stability(pred_t_list, num_source):
-    r"""prediction stability
-
-    :arg
-        pred_t_list: The prediction results of each domain specific node classifier for the target node.
-        num_source: the number of source networks.
-    :return
-        prediction_stability: the prediction stability of each domain specific node classifier.
-    """
-    prediction_stability_list = []
+def prediction_source_similarity(pred_t_list, num_source):
+    source_similarity_list = []
     pred_t_mean = pred_t_list[0]
     for i in range(num_source - 1):
         pred_t_mean = pred_t_mean + pred_t_list[i + 1]
     pred_t_mean = pred_t_mean / num_source
     for i in range(num_source):
-        source_stability = []
+        source_similarity = []
         for j in range(len(pred_t_list[i])):
             similarity = -1 * measures_similarity(pred_t_list[i][j], pred_t_mean)
-            source_stability.append(similarity)
-        source_stability = torch.stack(source_stability)
-        prediction_stability_list.append(source_stability)
-    return prediction_stability_list
+            source_similarity.append(similarity)
+        source_similarity = torch.stack(source_similarity)
+        source_similarity_list.append(source_similarity)
+    return source_similarity_list
 
 
 def node_transfer_weight(pred_logit_t_list, pred_label_t, num_source):
@@ -121,24 +93,22 @@ def node_transfer_weight(pred_logit_t_list, pred_label_t, num_source):
     :return
         node transferability weights.
     """
-    pred_t_list = []
+    logit_t_list = []
     for i in range(num_source):
-        pred_t_list.append(F.softmax(pred_logit_t_list[i].detach(), dim=1))
+        logit_t_list.append(F.softmax(pred_logit_t_list[i].detach(), dim=1))
 
-    confidences = prediction_confidence(pred_t_list, num_source, pred_label_t)
-    diversities = prediction_diversity(pred_t_list, num_source, pred_label_t)
-    similarities = prediction_stability(pred_t_list, num_source)
+    confidences = prediction_source_confidence(logit_t_list, num_source, pred_label_t)
+    diversities = prediction_source_diversity(logit_t_list, num_source, pred_label_t)
+    similarities = prediction_source_similarity(logit_t_list, num_source)
 
     importances = []
     for i in range(num_source):
-        importances.append(confidences[i] + similarities[i] + diversities[i])
+        importances.append(confidences[i] + similarities[i] + diversities[i] + 1e-8)
     return F.softmax(torch.stack(importances), dim=0)
 
 
-def pseudo_labeling_pl(pred_logit_t_list, tau_p, w_k_list, args):
+def pseudo_labeling(pred_logit_t_list, tau_p, domain_w_k_list, node_w_k_list, args):
     r"""pseudo-labeling learning.
-
-    Using the logit of the target node for positive pseudo label learning。
 
     :arg
         pred_logit_t_list (list): predicted logits from target domain.
@@ -154,33 +124,33 @@ def pseudo_labeling_pl(pred_logit_t_list, tau_p, w_k_list, args):
         pred_label_clf_list[j] = one_hot_encode_torch(indices_list[j], pred_logit_t_list[j].shape[1]).to(args.device)
 
     pred_label_pl = calculate_pred_label_t(pred_label_clf_list).float()
-    pred_label_pl = pred_label_pl.to(args.device)
+    pred_label_pl = pred_label_pl.to(indices_list[0].device)
     loss = 0
-    pred_t_clf_list = [0] * args.num_source
+    pred_logit_node_t_softmax_list = [0] * args.num_source
     for j in range(args.num_source):
-        pred_t_clf_list[j] = F.softmax(pred_logit_t_list[j], dim=1)
-        pred_t_clf_list[j] = pred_t_clf_list[j].to(args.device)
+        pred_logit_node_t_softmax_list[j] = F.softmax(pred_logit_t_list[j], dim=1)
+        pred_logit_node_t_softmax_list[j] = pred_logit_node_t_softmax_list[j].to(indices_list[0].device)
 
-    for i in range(0, args.num_class):
+    for i in range(0, pred_logit_t_list[0].shape[1]):
         positive_idx_list = [0] * args.num_source
         for j in range(args.num_source):
             positive_idx_list[j] = np.array(
-                torch.where((pred_t_clf_list[j][:, i] >= tau_p) * (pred_label_pl[:, i] > 0.0))[0].cpu())
-
+                torch.where((pred_logit_node_t_softmax_list[j][:, i] >= tau_p) * (pred_label_pl[:, i] > 0.0))[0].cpu())
         positive_idx = positive_idx_list[0]
-        for j in range(args.num_source):
-            positive_idx = np.intersect1d(positive_idx, positive_idx_list[j])
+        for k in range(args.num_source):
+            positive_idx = np.intersect1d(positive_idx, positive_idx_list[k])
         for j in range(args.num_source):
             if positive_idx.size > 0:
-                loss += w_k_list[j] * F.cross_entropy(pred_logit_t_list[j][positive_idx],
-                                                         indices_list[j][positive_idx], reduction='mean')
+                ce_loss = F.cross_entropy(
+                    pred_logit_t_list[j][positive_idx],
+                    indices_list[j][positive_idx],
+                    reduction='none')
+                loss += domain_w_k_list[j] * (ce_loss * node_w_k_list[j][positive_idx]).mean()
     return loss
 
 
 def prototype_loss_st(local_prototype_s, local_prototype_t, update_count_s, domain_w_k_list, args):
-    r"""prototype-based contrastive graph domain adaptation loss.
-
-    Calculate prototype-based contrastive graph domain adaptation loss based on local prototypes and global prototype.
+    r"""prototypical graph contrastive domain adaptation loss.
 
     :arg
         local_prototype_s: local prototypes of source graphs.
@@ -189,7 +159,7 @@ def prototype_loss_st(local_prototype_s, local_prototype_t, update_count_s, doma
         domain_w_k_list: the transferability weight of each source domain.
         args: the arguments of the model.
     :return
-        loss: prototype-based contrastive graph domain adaptation loss.
+        loss: prototypical graph contrastive domain adaptation loss.
     """
     local_prototype_loss = 0
     local_prototype = local_prototype_s
@@ -199,9 +169,10 @@ def prototype_loss_st(local_prototype_s, local_prototype_t, update_count_s, doma
         for j in range(args.num_source):
             for k in range(j + 1, args.num_source * 2):
                 if k >= args.num_source:
-                    local_prototype_loss = local_prototype_loss + domain_w_k_list[j] * torch.cosine_similarity(local_prototype[j][i],
-                                                                                                               local_prototype[k][i],
-                                                                                                               dim=0)
+                    local_prototype_loss = local_prototype_loss + domain_w_k_list[j] * torch.cosine_similarity(
+                        local_prototype[j][i],
+                        local_prototype[k][i],
+                        dim=0)
                 else:
                     local_prototype_loss = local_prototype_loss + torch.cosine_similarity(local_prototype[j][i],
                                                                                           local_prototype[k][i],
@@ -220,12 +191,7 @@ def prototype_loss_st(local_prototype_s, local_prototype_t, update_count_s, doma
             global_prototype_loss = global_prototype_loss + torch.cosine_similarity(global_prototype[i],
                                                                                     global_prototype[j], dim=0)
             for k in range(args.num_source):
-                global_prototype_loss = global_prototype_loss + domain_w_k_list[k] * torch.cosine_similarity(global_prototype[i],
-                                                                                                             local_prototype_t[k][j], dim=0)
-    loss = global_prototype_loss - local_prototype_loss
-    return loss
+                global_prototype_loss = global_prototype_loss + domain_w_k_list[k] * \
+                                        torch.cosine_similarity(global_prototype[i], local_prototype_t[k][j], dim=0)
 
-
-
-
-
+    return global_prototype_loss - local_prototype_loss

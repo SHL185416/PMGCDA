@@ -152,7 +152,7 @@ def mini_batch(x, y, a, n, batch_size):
         yield x[start:end], y[start:end], a[start:end, start:end], shuffle_index
 
 
-def measures_similarity(p1, p2):
+def measures_similarity(p1, p2, eps=1e-8):
     r"""measures the similarity between two vectors (p1,p2)
 
     :arg
@@ -161,5 +161,12 @@ def measures_similarity(p1, p2):
     :return
         similarity: similarity between p1 and p2
     """
-    temp = -(p1 * torch.log(p2) + p2 * torch.log(p1)) / 2
+    p1 = p1.clamp(min=eps, max=1.0 - eps)
+    p2 = p2.clamp(min=eps, max=1.0 - eps)
+
+    term1 = p1 * torch.log(p2)
+    term2 = p2 * torch.log(p1)
+    temp = -(term1 + term2) / 2
+
+    assert not torch.isnan(temp).any(), "NaN in similarity terms"
     return temp.sum()
